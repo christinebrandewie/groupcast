@@ -1,0 +1,338 @@
+                           THE GROUPCAST PROTOCOL
+
+1. INTRODUCTION
+
+The objective of the GroupCast protocol is to distribute short messages in real-
+time between client users and groups of users connected to a server.
+
+Clients  establish  a  TCP  connection to  the  GroupCast  server.  Through this
+connection, a client can
+- identify itself, 
+- query the identifiers of online clients, 
+- create, join, quit and query groups, 
+- send messages to other users and groups,
+- receive messages from other users, 
+- and terminate the connection.
+ 
+2. THE GROUPCAST MODEL
+ 
+The GroupCast design is based on the following model of communication:  multiple
+clients  connect to  a GroupCast  server over  a bidirectional  TCP  connection.
+GroupCast  commands, specifying client requests, are  generated  by the   client
+and   sent  to the   server. GroupCast commands are  not case sensitive, may  be
+followed  by  a list  of  arguments, all  separated  by commas.  The  request is
+terminated by <CR><LF>.
+
+	<COMMAND>[,ARGUMENT1[,ARGUMENT2[,...ARGUMENTN...]]]
+
+	For example:
+	LIST,USERS,@some_group
+	
+	where LIST is the command that has two parameters: USERS and @some_group.
+
+GroupCast replies  are  sent from the  server to the client in response  to  the
+commands. GroupCast replies start  with a + sign,  followed by the string  OK or
+ERROR, optionally followed by a list of comma separated arguments. The reqply is
+terminated by <CR><LF>.
+
+	+<REPLY>[,ARGUMENT1[,ARGUMENT2[,...ARGUMENTN...]]]
+	
+	For example:
+	
+	+OK,NAME,James
+	
+	where OK is the reply that has two arguments, NAME and James.
+
+GroupCast messages  are received  from  the server to  the  client   in response
+to a message  delivery request issued  by a different client. GroupCast messages
+start with the prefix +MSG, followed by the sender's name, the destination,  and
+the  message  body,  all  separated by  commas.  The  message  is terminated  by
+<CR><LF>.
+
+	+<MSG>,SENDER,DESTINATION,BODY
+
+	+MSG,Anna,@some_group,Hello World!
+	
+	where Anna  is the  sender's name,  @some_group is  the destination  and Hello
+	World! is the body of the message.
+ 
+2.1 Identification of Clients
+ 
+Once the connection  is established, the  GroupCast client identifies  itself to
+the  server  specifying  a  name.  Name  is  a  string  that  can  only  contain
+alphanumeric characters and space, and must be unique among the clients  already
+connected  to the   server. If the  GroupCast server successfully  verifies that
+these conditions are met,  it responds with an  OK, otherwise an ERROR  response
+with the appropriate error message is returned.
+
+	Command syntax:
+
+		NAME,<client_name>
+	
+	Successful reply format:
+		+OK,NAME,<client_name>
+
+	Unsuccessful reply format:
+		+ERROR<error_message>
+	
+	Example successful request and reply:
+
+		Client: NAME,Janos
+		Server: +OK,NAME,Janos
+
+	Example unsuccessful request and reply:
+
+		Client: NAME,Anna
+		Server: +ERROR,NAME,Anna: already in use
+
+2.2 Creating, joining and quitting groups
+
+After specifying a name, the client can request to create or join groups. Groups
+are collections of one or more clients with an optional limit on their capacity.
+Groups are  identified by  a group  name that  MUST start  with an  @ (at  sign)
+followed by a series of  characters that may  include alphanumerical  characters
+and space.  The  client  can optionally   specify the  maximum  capacity  of the
+group, i.e.    the maximum   number of   clients that   the  group  can contain.
+Maximum capacity is an integer, the value  of 0 (zero) meaning that there is  no
+maximum capacity set. In response to  a group  request, the server verifies   if
+the  group  name  meets  the  above requirements,  and  responds with  an  ERROR
+otherwise.
+
+The server's behavior depends on whether a group with the given group name exists.
+
+- If a group with  the given group name  does  not exist,  the  server   greates
+an  empty  group  with  that   group   name,   optionally  setting the   maximum
+capacity to the value supplied by the client, adds the client to the group,  and
+responds with an OK.
+
+- If a group with a given group name already exists, the server checks if it has
+a maximum capacity  set. If the  groups maximum capacity  is set, and  the group
+cannot  accommodade more  members, the  server responds  with an  ERROR to   the
+client. If the client specified the optional  group capacity, the server  checks
+if it matches  the maximum capacity  of the existing  group, otherwise sends  an
+ERROR response to the client. If neither of the above error conditions are  met,
+the server adds the client to the group, and  responds with an OK.
+
+	Command syntax:
+
+		JOIN,<@group_name>[,max_capacity]
+	
+	Successful reply format:
+	
+		+OK,<@group_name>(<member_count>/<max_capacity>)
+
+	Unsuccessful reply format:
+	
+		+ERROR<error_message>
+	
+	Example successful request and reply:
+
+		Client: JOIN,@some_group,10
+		Server: +OK,JOIN,@some_group(1/10)
+
+	Example unsuccessful request and reply:
+
+		Client: JOIN,@full_group
+		Server: +ERROR,JOIN,@full_group: group is full
+
+The client can quit a group by sending a quit request to the server,  specifying
+the group name the client  intends to quit. If the  group does not exist, or  if
+the client  is not  a member  of the  group, the  server responds with an ERROR.
+Otherwise, the client is removed from the group and the server responds with  an
+OK. If the group becomes empty after removing the client, the group is destroyed.
+
+	Command syntax:
+
+		QUIT,<@group_name>
+	
+	Successful reply format:
+	
+		+OK,<@group_name>
+
+	Unsuccessful reply format:
+	
+		+ERROR<error_message>
+	
+	Example successful request and reply:
+
+		Client: QUIT,@some_group
+		Server: +OK,QUIT,@some_group
+
+	Example unsuccessful request and reply:
+
+		Client: QUIT,@nonexistent_group
+		Server: +ERROR,QUIT,@nonexistent_group: group does not exist
+
+
+2.3 Messaging
+
+A client (source) can request the server to relay messages to another client  or
+a  group of  clients.  A  message  request  contains  the  destination  of  the
+message and the message   body. The destination of  the message is specified  as
+either a client name or  a group name. The body  of the message may contain  any
+characters  except <CR>  and <LF>.
+
+On  receiving   the  message   request  from   the  sender  client,  the  server
+identifies  the recipient client(s) by  matching the destination of the  message
+with the names of  the online clients and  the names of the  existing groups. 
+
+If the destination starts with an @ (at) character, it is treated as a group  name,
+otherwise it is treated as a client name. If no client associated with the given
+client name exists, or if the given  client name is the name of the  source, the
+server responds with an ERROR to the source client. If no group associated  with
+the given group  name exists, or  if the group  associated with the  given group
+name contains only the sender client,  the server responds with an ERROR  to the
+sender client.
+
+If the server identified at least one recipient client, it sends  each of them a
+GroupCast message containing the  sender clients name, the   destination (client
+name or group name) and the body of the message, and sends an OK response to the
+source client.
+
+	Command syntax:
+		MSG,<destination_client_name | @destination_group_name>,<body>
+	
+	Successful reply format:	
+		+OK,<@group_name>
+
+	Unsuccessful reply format:
+	
+		+ERROR<error_message>
+
+	Message format:
+		+MSG,<source_client_name>,<destination_client_name | @destination_group_name>,<body>
+	
+	Example successful request and reply:
+
+		Client: +OK,MSG,@some_group,Hi!
+		Server: +OK,MSG,@some_group,Hi!: 2 client(s) notified
+
+	Example unsuccessful request and reply:
+
+		Client: MSG,Anna,Hello!
+		Server: +ERROR,MSG,Anna,Hello!: no recipients found
+		
+	Message delivered to a recipient client that is a member of @some_group:
+		
+		Server: +MSG,Anna,@some_group,Hi!
+
+
+2.3 Queries
+
+The client can query the server's version information. The server replies to the
+client's query with an OK followed by the server's name and version number.
+
+	Command syntax:
+
+		VERSION
+	
+	Successful reply format:
+	
+		+OK,VERSION,<version_info>
+	
+	Example successful request and reply:
+
+		Client: VERSION
+		Server: +OK,VERSION,GroupCast server 1.0 ip-10-154-160-90/10.154.160.90:20000
+
+
+The client can query   the server for the   list of names of  connected clients.
+The server  replies to  the client's  query with   an OK,  followed by the comma
+separated  list  of  names   of clients   that  are   online.  The  list  always
+contains at  least one entry, the name of the client that sent the request.
+
+	Command syntax:
+
+		LIST,USERS
+	
+	Successful reply format:
+	
+		+OK,LIST,USERS:<client1_name>[,<client2_name>[, ... <clientN_name> ...]]
+
+	Example successful request and reply:
+
+		Client: LIST,USERS
+		Server: +OK,LIST,USERS:Janos,Anna
+
+The client can query  the server for the  list of users in a group specified  by
+a group name.  If the group  exists, the  server  replies to the  client's query
+with  an  OK  response,   followed  by the  non-empty  list  of  names  of users
+associated with the group. Otherwise the  server sends an ERROR response to  the
+client.
+
+	Command syntax:
+
+		LIST,USERS,<@group_name>
+	
+	Successful reply format:
+	
+		+OK,LIST,USERS,<@group_name>:<client1_name>[,<client2_name>[, ... <clientN_name> ...]]
+
+	Example successful request and reply:
+
+		Client: LIST,USERS,@some_group
+		Server: +OK,LIST,USERS,@some_group:Janos,Anna
+
+	Example unsuccessful request and reply:
+
+		Client: LIST,USERS,@nonexistend_group
+		Server: +ERROR,LIST,USERS,@nonexistent_group: group not found
+
+The client can query  the server for the  list of groups. The  server replies to
+the client's query  with an OK response,  followed by the  list of groups,   the
+number of users in  each  group, and the   maximum capacities. An empty  list is
+returned if no groups exist.
+
+	Command syntax:
+
+		LIST,GROUPS
+	
+	Successful reply format:
+	
+		+OK,LIST,GROUPS:[<@group1_name>(<member_count>/<max_capacity>),[<@group2_name>(<member_count>/<max_capacity>),...]]
+
+	Example successful request and reply:
+
+		Client: LIST,GROUPS
+		Server: +OK,LIST,GROUPS:@some_group(2/10),@some_other_group(1/0)
+
+The  client  can  query  the  server  for  the  list  of  groups  the client  is
+associated with. The  server replies to the client's query  with an OK response,
+followed by the  list of groups,   the number of users in  each  group, and  the
+maximum capacities. An empty  list is  returned if the client is not  associated
+with any group.
+
+	Command syntax:
+
+		LIST,MYGROUPS
+	
+	Successful reply format:
+	
+		+OK,LIST,MYGROUPS:[<@group1_name>(<member_count>/<max_capacity>),[<@group2_name>(<member_count>/<max_capacity>),...]]
+
+	Example successful request and reply:
+
+		Client: LIST,MYGROUPS
+		Server: +OK,LIST,MYGROUPS:@some_group(2/10),@some_other_group(1/0)
+
+
+2.4 Disconnection
+
+The  client can  actively request  disconnection from  the server  by sending  a
+disconnection command. The server always replies with an OK, removes the  client
+from all groups  the client is  associated with, deleting  those groups if  they
+become empty, and terminates the connection.
+
+	Command syntax:
+
+		BYE
+	
+	Successful reply format:
+	
+		+OK,BYE
+
+The client can disconnect from the server by closing its TCP connection. In that
+case, the server removes the  client from all groups  the client is   associated
+with,  deleting   those  groups  if   they  become  empty,  and  terminates  the
+connection.
+
