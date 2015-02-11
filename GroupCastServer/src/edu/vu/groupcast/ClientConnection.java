@@ -5,9 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.Socket;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Set;
 import java.util.logging.Logger;
 
 public class ClientConnection extends Thread {
@@ -319,8 +317,14 @@ public class ClientConnection extends Thread {
 										c.sendMsg(MSG, this.name + ","
 											+ address + "," + body);
 										
-										if(!c.out.checkError())
+										if(!c.out.checkError()) {
 											cnt++;
+										} else {
+											// error writing socket output stream: close it
+											c.running = false;
+											c.out.close();
+											// this will implicitly remove the client and its singleton groups
+										}
 								}
 								sendMsg(STATUS_OK,
 										"MSG,"+address+","+body+": " + cnt
@@ -339,7 +343,10 @@ public class ClientConnection extends Thread {
 			}
 
 		} catch (IOException e) {
-			e.printStackTrace();
+			if(running) {
+				// only print error if the client was supposed to be running, i.e. it wasn't stopped explicitly
+				e.printStackTrace();
+			}
 		} finally {
 			// make sure client is removed from server's data structures
 			server.removeClient(this);
@@ -355,5 +362,4 @@ public class ClientConnection extends Thread {
 		}
 
 	}
-
 }
