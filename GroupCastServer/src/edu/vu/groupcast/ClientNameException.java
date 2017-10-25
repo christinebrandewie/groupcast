@@ -1,5 +1,3 @@
 package edu.vu.groupcast;
 
-public class ClientNameException extends Exception {
-
-}
+public class ClientNameException extends Exception {}

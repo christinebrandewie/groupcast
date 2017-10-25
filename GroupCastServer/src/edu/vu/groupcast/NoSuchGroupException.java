@@ -1,5 +1,3 @@
 package edu.vu.groupcast;
 
-public class NoSuchGroupException extends Exception {
-
-}
+public class NoSuchGroupException extends Exception {}

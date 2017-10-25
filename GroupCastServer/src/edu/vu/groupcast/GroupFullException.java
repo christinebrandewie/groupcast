@@ -1,5 +1,3 @@
 package edu.vu.groupcast;
 
-public class GroupFullException extends Exception {
-
-}
+public class GroupFullException extends Exception {}
