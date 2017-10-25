@@ -3,35 +3,34 @@ package edu.vu.groupcast;
 import java.util.HashSet;
 
 public class Group {
-  String name;
-  HashSet<ClientConnection> members = new HashSet<ClientConnection>();
-  int maxMembers;
+  String mName;
+  HashSet<ClientConnection> mMembers = new HashSet<ClientConnection>();
+  int mMaxMembers;
 
   public void addMember(ClientConnection client) {
-    synchronized(members) {
-      members.add(client);
+    synchronized(mMembers) {
+      mMembers.add(client);
     }
   }
 
   public void removeMember(ClientConnection client) throws NonMemberException {
-    synchronized(members) {
-      if (members.contains(client)) {
-        members.remove(client);
+    synchronized(mMembers) {
+      if (mMembers.contains(client)) {
+        mMembers.remove(client);
       }
       else {
         throw new NonMemberException();
       }
-
     }
   }
 
   public int memberCount() {
-    synchronized(members) {
-      return members.size();
+    synchronized(mMembers) {
+      return mMembers.size();
     }
   }
 
   public String toString() {
-    return name + "(" + memberCount() + "/" + maxMembers + ")";
+    return mName + "(" + memberCount() + "/" + mMaxMembers + ")";
   }
 }

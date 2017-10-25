@@ -16,43 +16,42 @@ public class ClientConnection extends Thread {
   private static final int STATUS_OK = 1;
   private static final int MSG = 2;
 
-  Server server;
-  Socket cs;
-  String name;
-  boolean running;
-  PrintStream out;
-  BufferedReader in;
+  Server mServer;
+  Socket mClientSocket;
+  String mName;
+  boolean mRunning;
+  BufferedReader mInStream;
+  PrintStream mOutStream;
 
-  public ClientConnection(Server server, Socket cs) throws IOException {
-    this.server = server;
-    this.cs = cs;
-    this.in = new BufferedReader(new InputStreamReader(cs.getInputStream()));
-    this.out = new PrintStream(cs.getOutputStream());
-    this.running = false;
+  public ClientConnection(Server server, Socket clientSocket) throws IOException {
+    mServer = server;
+    mClientSocket = clientSocket;
+    mInStream = new BufferedReader(new InputStreamReader(mClientSocket.getInputStream()));
+    mOutStream = new PrintStream(mClientSocket.getOutputStream());
+    mRunning = false;
   }
 
   synchronized public void sendMsg(int type, String msg) {
     if (type == STATUS_OK) {
-      out.println("+OK," + msg);
+      mOutStream.println("+OK," + msg);
     }
     else if (type == STATUS_ERROR) {
-      out.println("+ERROR," + msg);
+      mOutStream.println("+ERROR," + msg);
     }
     else if (type == MSG) {
-      out.println("+MSG," + msg);
+      mOutStream.println("+MSG," + msg);
     }
   }
 
   @Override
   public void run() {
-    running = true;
+    mRunning = true;
     try {
-      //			sendMsg(STATUS_OK, server.toString());
+      //			sendMsg(STATUS_OK, mServer.toString());
 
-      while (running) {
-
-        LOG.info(this.cs.getRemoteSocketAddress().toString() + ": Waiting for input from client");
-        String msg = in.readLine();
+      while (mRunning) {
+        LOG.info(mClientSocket.getRemoteSocketAddress().toString() + ": Waiting for input from client");
+        String msg = mInStream.readLine();
 
         if (msg == null) { // client closed the connection
           break;
@@ -71,7 +70,7 @@ public class ClientConnection extends Thread {
           sb1.deleteCharAt(sb1.length() - 1); // remove last comma
         }
 
-        LOG.info(this.cs.getRemoteSocketAddress().toString() + ": read :" + sb1.toString());
+        LOG.info(mClientSocket.getRemoteSocketAddress().toString() + ": read :" + sb1.toString());
 
         // check if there's a valid command
         if (tokens.length == 0) {
@@ -87,12 +86,11 @@ public class ClientConnection extends Thread {
           }
           // handle VERSION
           else if ("VERSION".equalsIgnoreCase(cmd)) {
-            sendMsg(STATUS_OK, "VERSION,"+server.toString());
+            sendMsg(STATUS_OK, "VERSION," + mServer.toString());
           }
-
           // handle NAME
           else if ("NAME".equalsIgnoreCase(cmd)) {
-            if (this.name != null) {
+            if (mName != null) {
               sendMsg(STATUS_ERROR, "NAME: already set");
             }
             else if (tokens.length < 2) {
@@ -104,11 +102,11 @@ public class ClientConnection extends Thread {
             }
             else {
               try {
-                server.addClient(tokens[1], this);
-                this.name = tokens[1];
-                sendMsg(STATUS_OK, "NAME," + this.name);
+                mServer.addClient(tokens[1], this);
+                mName = tokens[1];
+                sendMsg(STATUS_OK, "NAME," + mName);
               } catch (ClientNameException e) {
-                sendMsg(STATUS_ERROR, "NAME,"+ tokens[1] +": already in use");
+                sendMsg(STATUS_ERROR, "NAME," + tokens[1] + ": already in use");
               }
             }
           }
@@ -124,8 +122,8 @@ public class ClientConnection extends Thread {
                   // list all users
 
                   StringBuilder sb = new StringBuilder();
-                  synchronized (server.clients) {
-                    for (String clientName: server.clients.keySet()) {
+                  synchronized (mServer.mClients) {
+                    for (String clientName: mServer.mClients.keySet()) {
                       sb.append(clientName);
                       sb.append(',');
                     }
@@ -140,15 +138,15 @@ public class ClientConnection extends Thread {
                 else {
                   // list users in specified group
                   String groupName = tokens[2];
-                  Group g = server.getGroupByName(groupName);
+                  Group g = mServer.getGroupByName(groupName);
                   if (g == null) {
                     sendMsg(STATUS_ERROR, "LIST,USERS," + groupName + ": group not found");
                   }
                   else {
                     StringBuilder sb = new StringBuilder();
-                    synchronized (g.members) {
-                      for (ClientConnection member: g.members) {
-                        sb.append(member.name);
+                    synchronized (g.mMembers) {
+                      for (ClientConnection member: g.mMembers) {
+                        sb.append(member.mName);
                         sb.append(',');
                       }
                     }
@@ -164,8 +162,8 @@ public class ClientConnection extends Thread {
               else if("GROUPS".equalsIgnoreCase(tokens[1])) {
                 // list groups
                 StringBuilder sb = new StringBuilder();
-                synchronized (server.groups) {
-                  for (Group group: server.groups.values()) {
+                synchronized (mServer.mGroups) {
+                  for (Group group: mServer.mGroups.values()) {
                     sb.append(group.toString());
                     sb.append(',');
                   }
@@ -180,10 +178,10 @@ public class ClientConnection extends Thread {
               else if("MYGROUPS".equalsIgnoreCase(tokens[1])) {
                 // list my group memberships
                 StringBuilder sb = new StringBuilder();
-                synchronized (server.groups) {
-                  for (Group group: server.groups.values()) {
-                    synchronized (group.members) {
-                      if (group.members.contains(this)) {
+                synchronized (mServer.mGroups) {
+                  for (Group group: mServer.mGroups.values()) {
+                    synchronized (group.mMembers) {
+                      if (group.mMembers.contains(this)) {
                         sb.append(group.toString());
                         sb.append(',');
                       }
@@ -205,7 +203,7 @@ public class ClientConnection extends Thread {
 
           // handle JOIN
           else if ("JOIN".equalsIgnoreCase(cmd)) {
-            if (this.name == null) {
+            if (mName == null) {
               sendMsg(STATUS_ERROR, "JOIN: name not set");
             }
             else if (tokens.length < 2) {
@@ -222,14 +220,14 @@ public class ClientConnection extends Thread {
                 if (tokens.length > 2) {
                   maxMembers = Integer.parseInt(tokens[2]);
                 }
-                Group group = server.joinGroup(groupName, this, maxMembers);
+                Group group = mServer.joinGroup(groupName, this, maxMembers);
                 sendMsg(STATUS_OK, "JOIN," + group.toString());
               } catch (GroupFullException e) {
                 sendMsg(STATUS_ERROR, "JOIN," + groupName
                 + ": group is full");
               } catch (NumberFormatException e) {
                 sendMsg(STATUS_ERROR,
-                "JOIN," + groupName+": invalid maximum group size");
+                "JOIN," + groupName + ": invalid maximum group size");
               } catch (MaxMembersMismatchException e) {
                 sendMsg(STATUS_ERROR,
                 "JOIN," + groupName + ": maximum group size mismatch with existing group");
@@ -247,7 +245,7 @@ public class ClientConnection extends Thread {
               String groupName = tokens[1];
 
               try {
-                server.quitGroup(groupName, this);
+                mServer.quitGroup(groupName, this);
                 sendMsg(STATUS_OK, "QUIT," + groupName);
               } catch (NoSuchGroupException e) {
                 sendMsg(STATUS_ERROR, "QUIT," + groupName + ": group does not exist");
@@ -259,7 +257,7 @@ public class ClientConnection extends Thread {
 
           // handle MSG
           else if ("MSG".equalsIgnoreCase(cmd)) {
-            if (this.name == null) {
+            if (mName == null) {
               sendMsg(STATUS_ERROR, "MSG: name not set");
             }
             else if (tokens.length < 2) {
@@ -285,18 +283,18 @@ public class ClientConnection extends Thread {
               String body = sb.toString();
 
               HashSet<ClientConnection> dsts = new HashSet<ClientConnection>();
-              Group g = server.getGroupByName(address);
+              Group g = mServer.getGroupByName(address);
 
               if (g != null) {
                 LOG.info("Found group " + address + ": " + g.toString());
-                synchronized (g.members) {
-                  dsts.addAll(g.members);
+                synchronized (g.mMembers) {
+                  dsts.addAll(g.mMembers);
                 }
               } else {
                 LOG.info("Group " + address + " not found");
               }
 
-              ClientConnection client = server.getClientByName(address);
+              ClientConnection client = mServer.getClientByName(address);
               if (client != null) {
                 dsts.add(client);
               }
@@ -305,15 +303,15 @@ public class ClientConnection extends Thread {
               if (!dsts.isEmpty()) {
                 int cnt = 0;
                 for (ClientConnection c : dsts) {
-                  c.sendMsg(MSG, this.name + "," + address + "," + body);
+                  c.sendMsg(MSG, mName + "," + address + "," + body);
 
-                  if (!c.out.checkError()) {
+                  if (!c.mOutStream.checkError()) {
                     cnt++;
                   }
                   else {
                     // error writing socket output stream: close it
-                    c.running = false;
-                    c.out.close();
+                    c.mRunning = false;
+                    c.mOutStream.close();
                     // this will implicitly remove the client and its singleton groups
                   }
                 }
@@ -331,20 +329,20 @@ public class ClientConnection extends Thread {
       }
 
     } catch (IOException e) {
-      if (running) {
+      if (mRunning) {
         // only print error if the client was supposed to be running, i.e. it wasn't stopped explicitly
         e.printStackTrace();
       }
     } finally {
       // make sure client is removed from server's data structures
-      server.removeClient(this);
+      mServer.removeClient(this);
 
       try {
-        in.close();
+        mInStream.close();
       } catch (IOException e) {}
-      out.close();
+      mOutStream.close();
       try {
-        cs.close();
+        mClientSocket.close();
       } catch (IOException e) {}
 
       LOG.info("Client connection terminated");

@@ -13,20 +13,18 @@ public class Server {
   private static final Logger LOG =
     Logger.getLogger(Thread.currentThread().getStackTrace()[0].getClassName());
 
-  ServerSocket ss = null;
-
-  HashMap<String, ClientConnection> clients = new HashMap<String, ClientConnection>();
-  HashMap<String, Group> groups = new HashMap<String, Group>();
+  ServerSocket mServerSocket = null;
+  HashMap<String, ClientConnection> mClients = new HashMap<String, ClientConnection>();
+  HashMap<String, Group> mGroups = new HashMap<String, Group>();
 
   public void start(int port) {
-
     try {
-      ss = new ServerSocket(port);
+      mServerSocket = new ServerSocket(port);
       LOG.info(this.toString() + " started");
 
       try {
         while (true) {
-          Socket cs = ss.accept();
+          Socket cs = mServerSocket.accept();
           LOG.info("Client connection accepted: " + cs.getRemoteSocketAddress().toString());
 
           new ClientConnection(this, cs).start();
@@ -39,10 +37,10 @@ public class Server {
       LOG.severe("Cannot create server socket on port " + port);
       e.printStackTrace();
     } finally {
-      if (ss != null && !ss.isClosed()) {
+      if (mServerSocket != null && !mServerSocket.isClosed()) {
         try {
           LOG.info("Attempting to close server socket");
-          ss.close();
+          mServerSocket.close();
         } catch (IOException e) {
           LOG.severe("Error closing server socket");
           e.printStackTrace();
@@ -55,32 +53,31 @@ public class Server {
   @Override
   public String toString() {
     try {
-      return "GroupCast server 1.0 " + InetAddress.getLocalHost().toString() + ":" + ss.getLocalPort();
+      return "GroupCast server 1.0 " + InetAddress.getLocalHost().toString() + ":" + mServerSocket.getLocalPort();
     } catch (UnknownHostException e) {
-      return "GroupCast server 1.0 " + "localhost:" + ss.getLocalPort();
+      return "GroupCast server 1.0 " + "localhost:" + mServerSocket.getLocalPort();
     }
   }
 
   public void addClient(String name, ClientConnection client) throws ClientNameException {
-    synchronized (clients) {
-      if (clients.containsKey(name)) {
+    synchronized (mClients) {
+      if (mClients.containsKey(name)) {
         throw new ClientNameException();
       }
-      clients.put(name, client);
+      mClients.put(name, client);
     }
   }
 
   public void removeClient(ClientConnection client) {
-    synchronized (clients) {
-      if (clients.containsKey(client.name)) {
-        clients.remove(client.name);
+    synchronized (mClients) {
+      if (mClients.containsKey(client.mName)) {
+        mClients.remove(client.mName);
       }
     }
 
-
     HashSet<Group> groupSet;
-    synchronized (groups) {
-      groupSet = new HashSet<Group>(groups.values());
+    synchronized (mGroups) {
+      groupSet = new HashSet<Group>(mGroups.values());
     }
 
     for (Group g : groupSet) {
@@ -92,9 +89,9 @@ public class Server {
   }
 
   public Group getGroupByName(String groupName) {
-    synchronized (groups) {
-      if (groups.containsKey(groupName)) {
-        return groups.get(groupName);
+    synchronized (mGroups) {
+      if (mGroups.containsKey(groupName)) {
+        return mGroups.get(groupName);
       }
       return null;
     }
@@ -104,16 +101,16 @@ public class Server {
   public Group joinGroup(String groupName, ClientConnection client, int maxMembers) throws GroupFullException, MaxMembersMismatchException {
     Group g;
 
-    synchronized (groups) {
-      if (groups.containsKey(groupName)) {
+    synchronized (mGroups) {
+      if (mGroups.containsKey(groupName)) {
         // group already exists
-        g = groups.get(groupName);
+        g = mGroups.get(groupName);
 
-        if (maxMembers > 0 && maxMembers != g.maxMembers) {
+        if (maxMembers > 0 && maxMembers != g.mMaxMembers) {
           throw new MaxMembersMismatchException();
         }
 
-        if (g.maxMembers == 0 || g.members.size() < g.maxMembers) {
+        if (g.mMaxMembers == 0 || g.mMembers.size() < g.mMaxMembers) {
           g.addMember(client);
         }
         else {
@@ -123,10 +120,10 @@ public class Server {
       else {
         // new group needed
         g = new Group();
-        g.name = groupName;
-        g.maxMembers = maxMembers;
+        g.mName = groupName;
+        g.mMaxMembers = maxMembers;
         g.addMember(client);
-        groups.put(groupName, g);
+        mGroups.put(groupName, g);
       }
     }
 
@@ -134,9 +131,9 @@ public class Server {
   }
 
   public void quitGroup(String groupName, ClientConnection client) throws NoSuchGroupException, NonMemberException {
-    synchronized (groups) {
-      if (groups.containsKey(groupName)) {
-        Group g = groups.get(groupName);
+    synchronized (mGroups) {
+      if (mGroups.containsKey(groupName)) {
+        Group g = mGroups.get(groupName);
         quitGroup(g, client);
       }
       else {
@@ -146,19 +143,19 @@ public class Server {
   }
 
   public void quitGroup(Group g, ClientConnection client) throws NonMemberException {
-    synchronized (groups) {
+    synchronized (mGroups) {
       g.removeMember(client);
-      LOG.info("Group members: " + g.members.size());
-      if (g.members.isEmpty()) {
-        groups.remove(g.name);
+      LOG.info("Group members: " + g.mMembers.size());
+      if (g.mMembers.isEmpty()) {
+        mGroups.remove(g.mName);
       }
     }
   }
 
   public ClientConnection getClientByName(String clientName) {
-    synchronized (clients) {
-      if (clients.containsKey(clientName)) {
-        return clients.get(clientName);
+    synchronized (mClients) {
+      if (mClients.containsKey(clientName)) {
+        return mClients.get(clientName);
       }
       return null;
     }
