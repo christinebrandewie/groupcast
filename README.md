@@ -7,15 +7,15 @@ time between client users and groups of users connected to a server.
 
 Clients  establish  a  TCP  connection to  the  GroupCast  server.  Through this
 connection, a client can
-- identify itself, 
-- query the identifiers of online clients, 
-- create, join, quit and query groups, 
+- identify itself,
+- query the identifiers of online clients,
+- create, join, quit and query groups,
 - send messages to other users and groups,
-- receive messages from other users, 
+- receive messages from other users,
 - and terminate the connection.
- 
+
 2. THE GROUPCAST MODEL
- 
+
 The GroupCast design is based on the following model of communication:  multiple
 clients  connect to  a GroupCast  server over  a bidirectional  TCP  connection.
 GroupCast  commands, specifying client requests, are  generated  by the   client
@@ -27,7 +27,7 @@ terminated by <CR><LF>.
 
 	For example:
 	LIST,USERS,@some_group
-	
+
 	where LIST is the command that has two parameters: USERS and @some_group.
 
 GroupCast replies  are  sent from the  server to the client in response  to  the
@@ -36,11 +36,11 @@ ERROR, optionally followed by a list of comma separated arguments. The reqply is
 terminated by <CR><LF>.
 
 	+<REPLY>[,ARGUMENT1[,ARGUMENT2[,...ARGUMENTN...]]]
-	
+
 	For example:
-	
+
 	+OK,NAME,James
-	
+
 	where OK is the reply that has two arguments, NAME and James.
 
 GroupCast messages  are received  from  the server to  the  client   in response
@@ -52,12 +52,12 @@ the  message  body,  all  separated by  commas.  The  message  is terminated  by
 	+<MSG>,SENDER,DESTINATION,BODY
 
 	+MSG,Anna,@some_group,Hello World!
-	
+
 	where Anna  is the  sender's name,  @some_group is  the destination  and Hello
 	World! is the body of the message.
- 
+
 2.1 Identification of Clients
- 
+
 Once the connection  is established, the  GroupCast client identifies  itself to
 the  server  specifying  a  name.  Name  is  a  string  that  can  only  contain
 alphanumeric characters and space, and must be unique among the clients  already
@@ -68,13 +68,13 @@ with the appropriate error message is returned.
 	Command syntax:
 
 		NAME,<client_name>
-	
+
 	Successful reply format:
 		+OK,NAME,<client_name>
 
 	Unsuccessful reply format:
 		+ERROR<error_message>
-	
+
 	Example successful request and reply:
 
 		Client: NAME,Janos
@@ -116,15 +116,15 @@ the server adds the client to the group, and  responds with an OK.
 	Command syntax:
 
 		JOIN,<@group_name>[,max_capacity]
-	
+
 	Successful reply format:
-	
+
 		+OK,<@group_name>(<member_count>/<max_capacity>)
 
 	Unsuccessful reply format:
-	
+
 		+ERROR<error_message>
-	
+
 	Example successful request and reply:
 
 		Client: JOIN,@some_group,10
@@ -144,15 +144,15 @@ OK. If the group becomes empty after removing the client, the group is destroyed
 	Command syntax:
 
 		QUIT,<@group_name>
-	
+
 	Successful reply format:
-	
+
 		+OK,<@group_name>
 
 	Unsuccessful reply format:
-	
+
 		+ERROR<error_message>
-	
+
 	Example successful request and reply:
 
 		Client: QUIT,@some_group
@@ -174,7 +174,7 @@ characters  except <CR>  and <LF>.
 
 On  receiving   the  message   request  from   the  sender  client,  the  server
 identifies  the recipient client(s) by  matching the destination of the  message
-with the names of  the online clients and  the names of the  existing groups. 
+with the names of  the online clients and  the names of the  existing groups.
 
 If the destination starts with an @ (at) character, it is treated as a group  name,
 otherwise it is treated as a client name. If no client associated with the given
@@ -191,17 +191,17 @@ source client.
 
 	Command syntax:
 		MSG,<destination_client_name | @destination_group_name>,<body>
-	
-	Successful reply format:	
+
+	Successful reply format:
 		+OK,<@group_name>
 
 	Unsuccessful reply format:
-	
+
 		+ERROR<error_message>
 
 	Message format:
 		+MSG,<source_client_name>,<destination_client_name | @destination_group_name>,<body>
-	
+
 	Example successful request and reply:
 
 		Client: +OK,MSG,@some_group,Hi!
@@ -211,9 +211,9 @@ source client.
 
 		Client: MSG,Anna,Hello!
 		Server: +ERROR,MSG,Anna,Hello!: no recipients found
-		
+
 	Message delivered to a recipient client that is a member of @some_group:
-		
+
 		Server: +MSG,Anna,@some_group,Hi!
 
 
@@ -225,11 +225,11 @@ client's query with an OK followed by the server's name and version number.
 	Command syntax:
 
 		VERSION
-	
+
 	Successful reply format:
-	
+
 		+OK,VERSION,<version_info>
-	
+
 	Example successful request and reply:
 
 		Client: VERSION
@@ -244,9 +244,9 @@ contains at  least one entry, the name of the client that sent the request.
 	Command syntax:
 
 		LIST,USERS
-	
+
 	Successful reply format:
-	
+
 		+OK,LIST,USERS:<client1_name>[,<client2_name>[, ... <clientN_name> ...]]
 
 	Example successful request and reply:
@@ -263,9 +263,9 @@ client.
 	Command syntax:
 
 		LIST,USERS,<@group_name>
-	
+
 	Successful reply format:
-	
+
 		+OK,LIST,USERS,<@group_name>:<client1_name>[,<client2_name>[, ... <clientN_name> ...]]
 
 	Example successful request and reply:
@@ -286,9 +286,9 @@ returned if no groups exist.
 	Command syntax:
 
 		LIST,GROUPS
-	
+
 	Successful reply format:
-	
+
 		+OK,LIST,GROUPS:[<@group1_name>(<member_count>/<max_capacity>),[<@group2_name>(<member_count>/<max_capacity>),...]]
 
 	Example successful request and reply:
@@ -305,9 +305,9 @@ with any group.
 	Command syntax:
 
 		LIST,MYGROUPS
-	
+
 	Successful reply format:
-	
+
 		+OK,LIST,MYGROUPS:[<@group1_name>(<member_count>/<max_capacity>),[<@group2_name>(<member_count>/<max_capacity>),...]]
 
 	Example successful request and reply:
@@ -326,13 +326,12 @@ become empty, and terminates the connection.
 	Command syntax:
 
 		BYE
-	
+
 	Successful reply format:
-	
+
 		+OK,BYE
 
 The client can disconnect from the server by closing its TCP connection. In that
 case, the server removes the  client from all groups  the client is   associated
 with,  deleting   those  groups  if   they  become  empty,  and  terminates  the
 connection.
-
