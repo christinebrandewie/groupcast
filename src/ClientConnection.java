@@ -1,5 +1,3 @@
-package edu.vu.groupcast;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -133,7 +131,6 @@ public class ClientConnection extends Thread {
     }
     else if (tokens.length < 2) {
       sendMsg(STATUS_ERROR, "NAME: not specified");
-
     }
     else if (tokens[1].startsWith("@")) {
       sendMsg(STATUS_ERROR, "NAME: cannot start with @");
@@ -152,89 +149,88 @@ public class ClientConnection extends Thread {
   private void listCommand(String[] tokens) {
     if (tokens.length < 2) {
       sendMsg(STATUS_ERROR, "LIST: parameter missing");
+      return;
     }
-    else {
-      if ("USERS".equalsIgnoreCase(tokens[1])) {
-        if (tokens.length == 2) {
-          // list all users
 
-          StringBuilder sb = new StringBuilder();
-          synchronized (mServer.mClients) {
-            for (String clientName: mServer.mClients.keySet()) {
-              sb.append(clientName);
-              sb.append(',');
-            }
-          }
-
-          if (sb.length() > 0) {
-            sb.deleteCharAt(sb.length() - 1);
-          }
-
-          sendMsg(STATUS_OK, "LIST,USERS:" + sb.toString());
-        }
-        else {
-          // list users in specified group
-          String groupName = tokens[2];
-          Group g = mServer.getGroupByName(groupName);
-          if (g == null) {
-            sendMsg(STATUS_ERROR, "LIST,USERS," + groupName + ": group not found");
-          }
-          else {
-            StringBuilder sb = new StringBuilder();
-            synchronized (g.mMembers) {
-              for (ClientConnection member: g.mMembers) {
-                sb.append(member.mName);
-                sb.append(',');
-              }
-            }
-
-            if (sb.length() > 0) {
-              sb.deleteCharAt(sb.length() - 1);
-            }
-
-            sendMsg(STATUS_OK, "LIST,USERS," + groupName + ':' + sb.toString());
-          }
-        }
-      }
-      else if ("GROUPS".equalsIgnoreCase(tokens[1])) {
-        // list groups
-        StringBuilder sb = new StringBuilder();
-        synchronized (mServer.mGroups) {
-          for (Group group: mServer.mGroups.values()) {
-            sb.append(group.toString());
-            sb.append(',');
+    if ("USERS".equalsIgnoreCase(tokens[1])) {
+      if (tokens.length == 2) {
+        // list all users
+        StringBuilder names = new StringBuilder();
+        synchronized (mServer.mClients) {
+          for (String clientName: mServer.mClients.keySet()) {
+            names.append(clientName);
+            names.append(',');
           }
         }
 
-        if (sb.length() > 0) {
-          sb.deleteCharAt(sb.length() - 1);
+        if (names.length() > 0) {
+          names.deleteCharAt(names.length() - 1);
         }
 
-        sendMsg(STATUS_OK, "LIST,GROUPS:" + sb.toString());
-      }
-      else if ("MYGROUPS".equalsIgnoreCase(tokens[1])) {
-        // list my group memberships
-        StringBuilder sb = new StringBuilder();
-        synchronized (mServer.mGroups) {
-          for (Group group: mServer.mGroups.values()) {
-            synchronized (group.mMembers) {
-              if (group.mMembers.contains(this)) {
-                sb.append(group.toString());
-                sb.append(',');
-              }
-            }
-          }
-        }
-
-        if (sb.length() > 0) {
-          sb.deleteCharAt(sb.length() - 1);
-        }
-
-        sendMsg(STATUS_OK, "LIST,MYGROUPS:" + sb.toString());
+        sendMsg(STATUS_OK, "LIST,USERS:" + names.toString());
       }
       else {
-        sendMsg(STATUS_ERROR, "LIST: Invalid parameter: " + tokens[1]);
+        // list users in specified group
+        String groupName = tokens[2];
+        Group group = mServer.getGroupByName(groupName);
+        if (group == null) {
+          sendMsg(STATUS_ERROR, "LIST,USERS," + groupName + ": group not found");
+        }
+        else {
+          StringBuilder names = new StringBuilder();
+          synchronized (group.mMembers) {
+            for (ClientConnection member: group.mMembers) {
+              names.append(member.mName);
+              names.append(',');
+            }
+          }
+
+          if (names.length() > 0) {
+            names.deleteCharAt(names.length() - 1);
+          }
+
+          sendMsg(STATUS_OK, "LIST,USERS," + groupName + ':' + names.toString());
+        }
       }
+    }
+    else if ("GROUPS".equalsIgnoreCase(tokens[1])) {
+      // list groups
+      StringBuilder groupNames = new StringBuilder();
+      synchronized (mServer.mGroups) {
+        for (Group group: mServer.mGroups.values()) {
+          groupNames.append(group.toString());
+          groupNames.append(',');
+        }
+      }
+
+      if (groupNames.length() > 0) {
+        groupNames.deleteCharAt(groupNames.length() - 1);
+      }
+
+      sendMsg(STATUS_OK, "LIST,GROUPS:" + groupNames.toString());
+    }
+    else if ("MYGROUPS".equalsIgnoreCase(tokens[1])) {
+      // list my group memberships
+      StringBuilder groupNames = new StringBuilder();
+      synchronized (mServer.mGroups) {
+        for (Group group: mServer.mGroups.values()) {
+          synchronized (group.mMembers) {
+            if (group.mMembers.contains(this)) {
+              groupNames.append(group.toString());
+              groupNames.append(',');
+            }
+          }
+        }
+      }
+
+      if (groupNames.length() > 0) {
+        groupNames.deleteCharAt(groupNames.length() - 1);
+      }
+
+      sendMsg(STATUS_OK, "LIST,MYGROUPS:" + groupNames.toString());
+    }
+    else {
+      sendMsg(STATUS_ERROR, "LIST: Invalid parameter: " + tokens[1]);
     }
   }
 
@@ -259,14 +255,11 @@ public class ClientConnection extends Thread {
         Group group = mServer.joinGroup(groupName, this, maxMembers);
         sendMsg(STATUS_OK, "JOIN," + group.toString());
       } catch (GroupFullException e) {
-        sendMsg(STATUS_ERROR, "JOIN," + groupName
-        + ": group is full");
+        sendMsg(STATUS_ERROR, "JOIN," + groupName + ": group is full");
       } catch (NumberFormatException e) {
-        sendMsg(STATUS_ERROR,
-        "JOIN," + groupName + ": invalid maximum group size");
+        sendMsg(STATUS_ERROR, "JOIN," + groupName + ": invalid maximum group size");
       } catch (MaxMembersMismatchException e) {
-        sendMsg(STATUS_ERROR,
-        "JOIN," + groupName + ": maximum group size mismatch with existing group");
+        sendMsg(STATUS_ERROR, "JOIN," + groupName + ": maximum group size mismatch with existing group");
       }
     }
   }
@@ -274,19 +267,18 @@ public class ClientConnection extends Thread {
   private void quitCommand(String[] tokens) {
     if (tokens.length < 2) {
       sendMsg(STATUS_ERROR, "QUIT: no group given");
+      return;
     }
 
-    else {
-      String groupName = tokens[1];
+    String groupName = tokens[1];
 
-      try {
-        mServer.quitGroup(groupName, this);
-        sendMsg(STATUS_OK, "QUIT," + groupName);
-      } catch (NoSuchGroupException e) {
-        sendMsg(STATUS_ERROR, "QUIT," + groupName + ": group does not exist");
-      } catch (NonMemberException e) {
-        sendMsg(STATUS_ERROR, "QUIT," + groupName + ": client is not a member");
-      }
+    try {
+      mServer.quitGroup(groupName, this);
+      sendMsg(STATUS_OK, "QUIT," + groupName);
+    } catch (NoSuchGroupException e) {
+      sendMsg(STATUS_ERROR, "QUIT," + groupName + ": group does not exist");
+    } catch (NonMemberException e) {
+      sendMsg(STATUS_ERROR, "QUIT," + groupName + ": client is not a member");
     }
   }
 
@@ -300,21 +292,20 @@ public class ClientConnection extends Thread {
     else if (tokens.length < 3) {
       sendMsg(STATUS_ERROR, "MSG: message body empty");
     }
-
     else {
       String address = tokens[1];
 
-      StringBuilder sb = new StringBuilder();
+      StringBuilder message = new StringBuilder();
       for (int i = 2; i < tokens.length; i++) {
-        sb.append(tokens[i]);
-        sb.append(',');
+        message.append(tokens[i]);
+        message.append(',');
       }
 
-      if (sb.length() > 0) {
-        sb.deleteCharAt(sb.length() - 1);
+      if (message.length() > 0) {
+        message.deleteCharAt(message.length() - 1);
       }
 
-      String body = sb.toString();
+      String messageBody = message.toString();
 
       HashSet<ClientConnection> messageRecipients = new HashSet<ClientConnection>();
       Group group = mServer.getGroupByName(address);
@@ -337,7 +328,7 @@ public class ClientConnection extends Thread {
       if (!messageRecipients.isEmpty()) {
         int numClients = 0;
         for (ClientConnection clientConnection : messageRecipients) {
-          clientConnection.sendMsg(MSG, mName + "," + address + "," + body);
+          clientConnection.sendMsg(MSG, mName + "," + address + "," + messageBody);
           if (!clientConnection.mOutStream.checkError()) {
             numClients++;
           }
@@ -348,9 +339,9 @@ public class ClientConnection extends Thread {
             // this will implicitly remove the client and its singleton groups
           }
         }
-        sendMsg(STATUS_OK, "MSG," + address + "," + body + ": " + numClients + " client(s) notified");
+        sendMsg(STATUS_OK, "MSG," + address + "," + messageBody + ": " + numClients + " client(s) notified");
       } else {
-        sendMsg(STATUS_ERROR, "MSG," + address + "," + body + ": no recipients found");
+        sendMsg(STATUS_ERROR, "MSG," + address + "," + messageBody + ": no recipients found");
       }
     }
   }

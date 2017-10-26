@@ -1,5 +1,3 @@
-package edu.vu.groupcast;
-
 import java.util.HashSet;
 
 public class Group {

@@ -1,5 +1,3 @@
-package edu.vu.groupcast;
-
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -159,24 +157,5 @@ public class Server {
       }
       return null;
     }
-  }
-
-  public static void main(String[] args) {
-    int port = 20000;
-
-    // make sure printstream is printing CRLF for newline
-    System.setProperty("line.separator", "\r\n");
-
-    if (args.length > 0) {
-      try {
-        port = Integer.parseInt(args[0]);
-      } catch (Exception e) {
-        LOG.warning("Invalid port specified: " + args[0]);
-        LOG.warning("Using default port " + port);
-      }
-    }
-
-    Server server = new Server();
-    server.start(port);
   }
 }

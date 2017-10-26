@@ -100,14 +100,14 @@ otherwise.
 
 The server's behavior depends on whether a group with the given group name exists.
 
-- If a group with  the given group name  does  not exist,  the  server   greates
+- If a group with  the given group name  does  not exist,  the  server   creates
 an  empty  group  with  that   group   name,   optionally  setting the   maximum
 capacity to the value supplied by the client, adds the client to the group,  and
 responds with an OK.
 
 - If a group with a given group name already exists, the server checks if it has
 a maximum capacity  set. If the  groups maximum capacity  is set, and  the group
-cannot  accommodade more  members, the  server responds  with an  ERROR to   the
+cannot  accommodate more  members, the  server responds  with an  ERROR to   the
 client. If the client specified the optional  group capacity, the server  checks
 if it matches  the maximum capacity  of the existing  group, otherwise sends  an
 ERROR response to the client. If neither of the above error conditions are  met,
