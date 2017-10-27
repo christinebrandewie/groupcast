@@ -22,10 +22,9 @@ public class Server {
 
       try {
         while (true) {
-          Socket cs = mServerSocket.accept();
-          LOG.info("Client connection accepted: " + cs.getRemoteSocketAddress().toString());
-
-          new ClientConnection(this, cs).start();
+          Socket clientSocket = mServerSocket.accept();
+          LOG.info("Client connection accepted: " + clientSocket.getRemoteSocketAddress().toString());
+          new ClientConnection(this, clientSocket).start();
         }
       } catch (IOException e) {
         LOG.severe("Error while accepting connections");
@@ -45,7 +44,6 @@ public class Server {
         }
       }
     }
-
   }
 
   @Override
@@ -78,12 +76,11 @@ public class Server {
       groupSet = new HashSet<Group>(mGroups.values());
     }
 
-    for (Group g : groupSet) {
+    for (Group group : groupSet) {
       try {
-        quitGroup(g, client);
+        quitGroup(group, client);
       } catch (NonMemberException e) {}
     }
-
   }
 
   public Group getGroupByName(String groupName) {
@@ -97,42 +94,40 @@ public class Server {
 
 
   public Group joinGroup(String groupName, ClientConnection client, int maxMembers) throws GroupFullException, MaxMembersMismatchException {
-    Group g;
+    Group group;
 
     synchronized (mGroups) {
       if (mGroups.containsKey(groupName)) {
-        // group already exists
-        g = mGroups.get(groupName);
+        group = mGroups.get(groupName);
 
-        if (maxMembers > 0 && maxMembers != g.mMaxMembers) {
+        if (maxMembers > 0 && maxMembers != group.mMaxMembers) {
           throw new MaxMembersMismatchException();
         }
 
-        if (g.mMaxMembers == 0 || g.mMembers.size() < g.mMaxMembers) {
-          g.addMember(client);
+        if (group.mMaxMembers == 0 || group.mMembers.size() < group.mMaxMembers) {
+          group.addMember(client);
         }
         else {
           throw new GroupFullException();
         }
       }
       else {
-        // new group needed
-        g = new Group();
-        g.mName = groupName;
-        g.mMaxMembers = maxMembers;
-        g.addMember(client);
-        mGroups.put(groupName, g);
+        group = new Group();
+        group.mName = groupName;
+        group.mMaxMembers = maxMembers;
+        group.addMember(client);
+        mGroups.put(groupName, group);
       }
     }
 
-    return g;
+    return group;
   }
 
   public void quitGroup(String groupName, ClientConnection client) throws NoSuchGroupException, NonMemberException {
     synchronized (mGroups) {
       if (mGroups.containsKey(groupName)) {
-        Group g = mGroups.get(groupName);
-        quitGroup(g, client);
+        Group group = mGroups.get(groupName);
+        quitGroup(group, client);
       }
       else {
         throw new NoSuchGroupException();
@@ -140,12 +135,12 @@ public class Server {
     }
   }
 
-  public void quitGroup(Group g, ClientConnection client) throws NonMemberException {
+  public void quitGroup(Group group, ClientConnection client) throws NonMemberException {
     synchronized (mGroups) {
-      g.removeMember(client);
-      LOG.info("Group members: " + g.mMembers.size());
-      if (g.mMembers.isEmpty()) {
-        mGroups.remove(g.mName);
+      group.removeMember(client);
+      LOG.info("Group members: " + group.mMembers.size());
+      if (group.mMembers.isEmpty()) {
+        mGroups.remove(group.mName);
       }
     }
   }

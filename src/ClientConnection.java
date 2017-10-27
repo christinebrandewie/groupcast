@@ -66,7 +66,6 @@ public class ClientConnection extends Thread {
         if (sb1.length() > 0) {
           sb1.deleteCharAt(sb1.length() - 1); // remove last comma
         }
-
         LOG.info(mClientSocket.getRemoteSocketAddress().toString() + ": read :" + sb1.toString());
 
         // check if there's a valid command
@@ -98,7 +97,6 @@ public class ClientConnection extends Thread {
           else if ("MSG".equalsIgnoreCase(cmd)) {
             msgCommand(tokens);
           }
-
           else {
             sendMsg(STATUS_ERROR, "Invalid command (" + cmd + ")");
           }
